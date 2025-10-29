@@ -180,19 +180,21 @@ class LocalInferenceModel:
                 logging.error(f"Failed to write prompt log to {prompt_log}: {e}")
 
         if self.mode == 'export':
-            return self._handle_export(problem_id, full_prompt, files)
+            return self._handle_export(problem_id, full_prompt, system_prompt, prompt, files)
         elif self.mode == 'import':
             return self._handle_import(problem_id, files, schema)
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
 
-    def _handle_export(self, problem_id: str, prompt: str, files: List[str]) -> Tuple[Dict, bool]:
+    def _handle_export(self, problem_id: str, prompt: str, system_prompt: str, user_prompt: str, files: List[str]) -> Tuple[Dict, bool]:
         """Handle export mode: save prompt and return dummy response."""
         # Only save unique prompts (deduplication by problem ID)
         if problem_id not in self.prompts_cache:
             prompt_data = {
                 'id': problem_id,
-                'prompt': prompt
+                'prompt': prompt,
+                'system': system_prompt,
+                'user': user_prompt,
             }
             self.prompts_cache[problem_id] = prompt_data
             
