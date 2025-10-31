@@ -10,11 +10,12 @@ import sys
 from pathlib import Path
 
 # ---- Hardcoded settings you can tweak if needed ----
-AGENT_NAME = "human-agent"
+AGENT_NAME = "codex-struct-agent"
 RUNS_DIR = Path(__file__).parent / "agents" / AGENT_NAME / "runs"
 DATASET = "picorv32_benchmark/output.jsonl"
 TEST_NAME = "cvdp_agentic_picorv32_dakota_0001"
-
+# DATASET = "example_dataset/cvdp_v1.0.1_example_agentic_code_generation_no_commercial_with_solutions.jsonl"
+# TEST_NAME = "cvdp_agentic_fixed_arbiter_0001"
 
 def ensure_dir(p: Path):
     p.mkdir(parents=True, exist_ok=True)
@@ -37,8 +38,11 @@ def copy_agent_code(src: Path, dest: Path):
     if not src.is_dir():
         raise SystemExit(f"ERROR: agent directory not found: {src}")
     ensure_dir(dest)
-    shutil.copyfile(src / "agent.py", dest / "agent.py")
-    #shutil.copyfile(src / "prompts.py", dest / "prompts.py")
+
+    for name in ("agent.py", "prompts.py"):
+        source = src / name
+        if source.exists():
+            shutil.copyfile(source, dest / name)
 
 def build_agent(agent_dir: Path):
     build_script = agent_dir / "build_agent.sh"

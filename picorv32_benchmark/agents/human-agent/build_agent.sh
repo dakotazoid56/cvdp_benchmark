@@ -5,4 +5,4 @@
 
 docker build -f Dockerfile-base -t cvdp-human-agent-base .
 docker build -f Dockerfile-agent -t cvdp-human-agent --no-cache .
-docker build -f Dockerfile-harness -t cvdp-human-harness --no-cache .
+docker build -f Dockerfile-harness -t cvdp-harness --no-cache .

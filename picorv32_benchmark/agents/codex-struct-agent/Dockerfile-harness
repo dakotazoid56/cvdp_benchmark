@@ -1,0 +1,8 @@
+# Reuse the same base that already has oss-cad-suite + Python 3.12
+FROM cvdp-codex-struct-agent-base AS harness
+
+# (Optional) any extra Python deps your test_runner needs
+# RUN python3.12 -m pip install --no-cache-dir cocotb pytest cocotb-test cocotb-tools
+
+WORKDIR /code
+ENTRYPOINT ["python3.12", "/src/test_runner.py"]

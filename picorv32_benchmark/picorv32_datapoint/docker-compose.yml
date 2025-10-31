@@ -2,7 +2,7 @@ services:
 
   direct:
     #image: __OSS_SIM_IMAGE__
-    image: cvdp-human-harness:latest
+    image: cvdp-harness:latest
 
     volumes:
       - ./src/:/src/:ro # Infrastructure location

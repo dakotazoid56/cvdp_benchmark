@@ -16,3 +16,4 @@ runs/
 .env
 _saved/
 .DS_STORE
+auth.json

@@ -1,0 +1,25 @@
+FROM cvdp-codex-struct-agent-base
+
+WORKDIR /app
+
+# Set CODEX_HOME to a writable location
+ENV CODEX_HOME=/code/.codex
+
+# Create codex directory with proper permissions
+RUN mkdir -p /code/.codex && chmod 777 /code/.codex
+# Copy auth.json to the CODEX_HOME location
+COPY auth.json /code/.codex/auth.json
+RUN chmod 644 /code/.codex/auth.json
+
+# Create /code directory and set permissions
+RUN mkdir -p /code && chmod 777 /code
+
+# Export path again for codex
+ENV OSSCAD=/opt/oss-cad-suite
+ENV PATH="${OSSCAD}/bin:${PATH}"
+
+# Copy agent code
+COPY agent.py prompts.py .
+
+# Set the entrypoint
+ENTRYPOINT ["python3.12", "/app/agent.py"]
