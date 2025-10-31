@@ -1,0 +1,3 @@
+[submodule "picorv32_benchmark/context/picorv32"]
+	path = picorv32_benchmark/context/picorv32
+	url = git@github.com:dakotazoid56/picorv32.git
