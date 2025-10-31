@@ -1,0 +1,3 @@
+[submodule "picorv32_benchmark/picorv32_datapoint/rtl"]
+	path = picorv32_benchmark/picorv32_datapoint/rtl
+	url = git@github.com:dakotazoid56/picorv32.git
