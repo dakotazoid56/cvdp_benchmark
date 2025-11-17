@@ -104,6 +104,18 @@ class ConfigManager:
                            description="Anthropic API key for Claude model access")
         self.register_config("NVIDIA_API_KEY", required=False,
                            description="NVIDIA API key for model access")
+        self.register_config("MISTRAL_API_KEY", required=False,
+                            description="Mistral API key for model access")
+        self.register_config("AWS_ACCESS_KEY", required=False,
+                            description="AWS Access Key for Bedrock model access")
+        self.register_config("AWS_SECRET_KEY", required=False,
+                            description="AWS Secret Key for Bedrock model access")
+        self.register_config("CLAUDE_CODE_OAUTH_TOKEN", required=False,
+                           description="OAuth token for Claude Code access")
+        self.register_config("OPENROUTER_API_KEY", required=False,
+                           description="OpenRouter API key for model access")
+        
+              
               
         # Application Configuration
         self.register_config("ENABLE_SUBJECTIVE_SCORING", default=False, type_cast=bool,

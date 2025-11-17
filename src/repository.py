@@ -1086,7 +1086,6 @@ class AgenticRepository(Repository):
     def docker_cmd(self, issue_path):
 
         cwd  = os.getcwd()
-        key  = os.getenv('OPENAI_USER_KEY')
         path = os.path.abspath(issue_path)
 
         if self.volume_name:
@@ -1103,10 +1102,37 @@ class AgenticRepository(Repository):
         cmd     = " ".join(volumes)
         cmd    += f" --rm -w /rundir"
 
-        # Adding OpenAI Key to the command line
-        if key:
-            cmd += f" --env OPENAI_USER_KEY={key}"
+        # Adding Model Key to the command line
+        openai_user_key  = os.getenv('OPENAI_USER_KEY')
+        if openai_user_key:
+            cmd += f" --env OPENAI_USER_KEY={openai_user_key}"
+
+        mistral_api_key  = os.getenv('MISTRAL_API_KEY')
+        if mistral_api_key:
+            cmd += f" --env MISTRAL_API_KEY={mistral_api_key}"
+        
+        anthropic_api_key  = os.getenv('ANTHROPIC_API_KEY')
+        if anthropic_api_key:
+            cmd += f" --env ANTHROPIC_API_KEY={anthropic_api_key}"
+
+        aws_access_key  = os.getenv('AWS_ACCESS_KEY')
+        if aws_access_key:
+            cmd += f" --env AWS_ACCESS_KEY={aws_access_key}"
+
+        aws_secret_key  = os.getenv('AWS_SECRET_KEY')
+        if aws_secret_key:
+            cmd += f" --env AWS_SECRET_KEY={aws_secret_key}"
+
+        claude_code_oauth_token = os.getenv('CLAUDE_CODE_OAUTH_TOKEN')
+        if claude_code_oauth_token:
+            cmd += f" --env CLAUDE_CODE_OAUTH_TOKEN={claude_code_oauth_token}"
+
+        openrouter_api_key  = os.getenv('OPENROUTER_API_KEY')
+        if openrouter_api_key:
+            cmd += f" --env OPENROUTER_API_KEY={openrouter_api_key}"
+
         return cmd
+
 
     def create_folders(self, path):
 

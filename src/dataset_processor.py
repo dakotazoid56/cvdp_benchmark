@@ -1597,7 +1597,13 @@ class AgenticProcessor (DatasetProcessor):
                         ],
                         'working_dir': '/code',
                         'environment': {
-                            'OPENAI_USER_KEY': config.get('OPENAI_USER_KEY', '')
+                            'OPENAI_USER_KEY': config.get('OPENAI_USER_KEY', ''),
+                            'MISTRAL_API_KEY': config.get('MISTRAL_API_KEY', ''),
+                            'ANTHROPIC_API_KEY': config.get('ANTHROPIC_API_KEY', ''),
+                            'AWS_ACCESS_KEY': config.get('AWS_ACCESS_KEY', ''),
+                            'AWS_SECRET_KEY': config.get('AWS_SECRET_KEY', ''),
+                            'CLAUDE_CODE_OAUTH_TOKEN': config.get('CLAUDE_CODE_OAUTH_TOKEN', ''),
+                            'OPENROUTER_API_KEY': config.get('OPENROUTER_API_KEY', ''),
                         }
                     }
                 },
@@ -1623,7 +1629,13 @@ class AgenticProcessor (DatasetProcessor):
                         ],
                         'working_dir': '/code',
                         'environment': {
-                            'OPENAI_USER_KEY': config.get('OPENAI_USER_KEY', '')
+                            'OPENAI_USER_KEY': config.get('OPENAI_USER_KEY', ''),
+                            'MISTRAL_API_KEY': config.get('MISTRAL_API_KEY', ''),
+                            'ANTHROPIC_API_KEY': config.get('ANTHROPIC_API_KEY', ''),
+                            'AWS_ACCESS_KEY': config.get('AWS_ACCESS_KEY', ''),
+                            'AWS_SECRET_KEY': config.get('AWS_SECRET_KEY', ''),
+                            'CLAUDE_CODE_OAUTH_TOKEN': config.get('CLAUDE_CODE_OAUTH_TOKEN', ''),
+                            'OPENROUTER_API_KEY': config.get('OPENROUTER_API_KEY', ''),
                         }
                     }
                 }
