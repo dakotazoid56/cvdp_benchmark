@@ -8,13 +8,14 @@ import time
 import yaml
 import logging
 
-def generate_network_name(dataset_path, shared=False):
+def generate_network_name(dataset_path, shared=False, run_id=None):
     """
     Generate a consistent bridge network name based on dataset path and timestamp.
     
     Args:
         dataset_path (str): Path to the dataset file
-        shared (bool): If True, creates a shared network name without timestamp
+        shared (bool): If True, creates a shared network name without timestamp (unless run_id is provided)
+        run_id (str): Optional unique identifier for this run to ensure network uniqueness
         
     Returns:
         str: The network name to use with Docker
@@ -27,8 +28,11 @@ def generate_network_name(dataset_path, shared=False):
     # but use only the first 8 chars to keep names reasonably short
     dataset_hash = hashlib.md5(dataset_path.encode()).hexdigest()[:8]
     
-    # Create a network name with timestamp if not shared
-    if shared:
+    # Create a network name
+    if run_id:
+        # If run_id is provided, it takes precedence for uniqueness
+        network_name = f"cvdp-{dataset_name}-{dataset_hash}-{run_id}"
+    elif shared:
         network_name = f"cvdp-bridge-{dataset_name}-{dataset_hash}"
     else:
         timestamp = int(time.time())

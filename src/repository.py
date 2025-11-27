@@ -7,6 +7,7 @@ import time
 import subprocess
 import yaml
 import psutil
+import uuid
 from src import subjective
 from src import network_util
 import dotenv
@@ -388,7 +389,9 @@ class Repository:
             formatted_repo = 'p' + formatted_repo
         
         # Create project name with formatted repo name
-        project_name = f"{formatted_repo}_{self.id}_{int(time.time())}"
+        # Add UUID to ensure uniqueness even if started at the same second
+        unique_suffix = str(uuid.uuid4())[:8]
+        project_name = f"{formatted_repo}_{self.id}_{int(time.time())}_{unique_suffix}"
 
         # Extract project name prefix for filtering (remove timestamp)
         project_prefix = "_".join(project_name.split("_")[:-1])
@@ -712,7 +715,8 @@ class Repository:
             formatted_repo = 'p' + formatted_repo
         
         # Create project name with formatted repo name - using bash command for timestamp
-        project_name = f"agent_{formatted_repo}_{self.id}_$(date +%s)"
+        # Add RANDOM to ensure uniqueness even if started at the same second
+        project_name = f"agent_{formatted_repo}_{self.id}_$(date +%s)_$RANDOM"
         
         # Extract project name prefix for filtering (remove timestamp part)
         project_prefix = f"agent_{formatted_repo}_{self.id}"

@@ -12,6 +12,7 @@ from .openai_llm import OpenAI_Instance
 from .openai_llm_responses import OpenAI_Responses_Instance
 from .subjective_score_model import SubjectiveScoreModel_Instance
 from .local_inference_model import LocalInferenceModel
+from .openrouter_llm import OpenRouter_Instance
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,7 +32,15 @@ class ModelFactory:
             "gpt-4o": self._create_openai_instance,
             "gpt-4o-mini": self._create_openai_instance,
             "o3-pro": self._create_openai_responses_instance,
-            
+            "gpt-5-nano": self._create_openai_responses_instance,
+            "gpt-5-mini": self._create_openai_responses_instance,
+            "gpt-5": self._create_openai_responses_instance,
+
+            # OpenRouter models (supports multiple providers)
+            "openrouter": self._create_openrouter_instance,
+            "qwen": self._create_openrouter_instance,
+            "moonshotai": self._create_openrouter_instance,
+
             # Subjective scoring model
             "sbj_score": self._create_subjective_score_instance,
             
@@ -43,26 +52,31 @@ class ModelFactory:
     def create_model(self, model_name: str, context: Any = None, key: Optional[str] = None, **kwargs) -> Any:
         """
         Create a model instance based on the model name.
-        
+
         Args:
             model_name: Name of the model to create
             context: Context to pass to the model constructor
             key: API key to use (if applicable)
             **kwargs: Additional arguments to pass to the model constructor
-            
+
         Returns:
             An instance of the appropriate model class
-        
+
         Raises:
             ValueError: If the model type is not supported
         """
-        # Extract model type from model name (before first hyphen)
-        model_type = model_name.split('-')[0]
-        
-        # For OpenAI models, we use the full model name
+        # Extract model type from model name
+        # For OpenRouter-style paths (provider/model-name), split on '/' first
+        if '/' in model_name:
+            model_type = model_name.split('/')[0]
+        else:
+            # For OpenAI-style models (gpt-4, gpt-3.5-turbo), split on '-'
+            model_type = model_name.split('-')[0]
+
+        # Try exact match first (for specific model registrations)
         if model_name in self.model_types:
             return self.model_types[model_name](model_name, context, key, **kwargs)
-        # For models that follow a pattern like "anthropic-claude-3", we can match by prefix
+        # Try prefix match (for provider-based routing)
         elif model_type in self.model_types:
             return self.model_types[model_type](model_name, context, key, **kwargs)
         else:
@@ -97,6 +111,10 @@ class ModelFactory:
         """Create a Local Import model instance"""
         file_path = kwargs.get('file_path', 'responses.jsonl')
         return LocalInferenceModel(context=context, mode='import', file_path=file_path, key=key, model=model_name)
+
+    def _create_openrouter_instance(self, model_name: str, context: Any, key: Optional[str], **kwargs) -> OpenRouter_Instance:
+        """Create an OpenRouter model instance"""
+        return OpenRouter_Instance(context=context, key=key, model=model_name)
 
     def register_model_type(self, model_identifier: str, factory_method):
         """

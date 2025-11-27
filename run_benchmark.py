@@ -20,6 +20,7 @@ from src import report
 from src import wrapper
 import json
 import os
+import uuid
 from src import network_util
 import atexit
 import sys
@@ -392,8 +393,10 @@ if __name__ == "__main__":
             print(f"Using specified Docker network: {shared_network_name}")
         else:
             # Auto-generate a network name based on the dataset for the default network
-            shared_network_name = network_util.generate_network_name(filename, shared=True)
-            print(f"Generated Docker network name: {shared_network_name}")
+            # Generate a unique run ID to ensure network uniqueness across concurrent runs
+            run_id = str(uuid.uuid4())[:8]
+            shared_network_name = network_util.generate_network_name(filename, shared=True, run_id=run_id)
+            print(f"Generated Docker network name: {shared_network_name} (run_id: {run_id})")
         
         # Commercial EDA datasets will have an additional license network (handled separately)
         if eda_validation['required']:
