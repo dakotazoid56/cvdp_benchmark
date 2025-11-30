@@ -2022,7 +2022,9 @@ class AgenticProcessor (DatasetProcessor):
             else:
                 # Traditional agent processing for non-context-heavy datapoints
                 # Prepare directories for agent
-                dir_names = ["docs", "rundir", "rtl", "verif"]
+                # NOTE: rundir is excluded from patch generation - it's for agent scratch space
+                # and may contain large binary files (.vvp), agent state (.opencode/), etc.
+                dir_names = ["docs", "rtl", "verif"]
                 before_dir = os.path.join(issue_path, "before")
                 os.makedirs(before_dir, exist_ok=True)
                 for d in dir_names:

@@ -13,6 +13,7 @@ from .openai_llm_responses import OpenAI_Responses_Instance
 from .subjective_score_model import SubjectiveScoreModel_Instance
 from .local_inference_model import LocalInferenceModel
 from .openrouter_llm import OpenRouter_Instance
+from .mistral_llm import Mistral_Instance
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,6 +41,13 @@ class ModelFactory:
             "openrouter": self._create_openrouter_instance,
             "qwen": self._create_openrouter_instance,
             "moonshotai": self._create_openrouter_instance,
+
+            # Mistral models
+            "mistral": self._create_mistral_instance,
+            "mistral-medium": self._create_mistral_instance,
+            "mistral-large": self._create_mistral_instance,
+            "mistral-small": self._create_mistral_instance,
+            "codestral": self._create_mistral_instance,
 
             # Subjective scoring model
             "sbj_score": self._create_subjective_score_instance,
@@ -115,6 +123,10 @@ class ModelFactory:
     def _create_openrouter_instance(self, model_name: str, context: Any, key: Optional[str], **kwargs) -> OpenRouter_Instance:
         """Create an OpenRouter model instance"""
         return OpenRouter_Instance(context=context, key=key, model=model_name)
+
+    def _create_mistral_instance(self, model_name: str, context: Any, key: Optional[str], **kwargs) -> Mistral_Instance:
+        """Create a Mistral model instance"""
+        return Mistral_Instance(context=context, key=key, model=model_name)
 
     def register_model_type(self, model_identifier: str, factory_method):
         """
