@@ -11,6 +11,8 @@ import uuid
 from src import subjective
 from src import network_util
 import dotenv
+import datetime
+import threading
 from src.dir_monitor import DirectorySizeMonitor
 from src.config_manager import config
 from src.constants import (
@@ -19,6 +21,39 @@ from src.constants import (
     BLEU_SCORING_CATEGORIES
 )
 import re
+
+# ----------------------------------------
+# - Kill Event Logging
+# ----------------------------------------
+
+def log_kill_event(source: str, pid: int, reason: str, extra_info: dict = None):
+    """
+    Log container/process kill events to both stdout and a dedicated kill log file.
+    
+    Args:
+        source: Where the kill originated (e.g., 'exec_timeout', 'dir_monitor', 'kill_process_tree')
+        pid: Process ID being killed
+        reason: Why the kill is happening
+        extra_info: Additional context (e.g., directory size, timeout value)
+    """
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+    thread_id = threading.current_thread().name
+    
+    log_msg = f"[KILL_EVENT] [{timestamp}] [Thread: {thread_id}] Source: {source} | PID: {pid} | Reason: {reason}"
+    if extra_info:
+        for key, value in extra_info.items():
+            log_msg += f" | {key}: {value}"
+    
+    print(log_msg)
+    
+    # Also write to dedicated kill events log
+    try:
+        log_dir = os.environ.get('KILL_LOG_DIR', '/tmp')
+        kill_log_path = os.path.join(log_dir, 'kill_events.log')
+        with open(kill_log_path, 'a') as f:
+            f.write(log_msg + '\n')
+    except Exception as e:
+        print(f"Warning: Could not write to kill log: {e}")
 
 dotenv.load_dotenv()
 
@@ -30,17 +65,34 @@ dotenv.load_dotenv()
 DOCKER_TIMEOUT = config.get('DOCKER_TIMEOUT')
 DOCKER_TIMEOUT_AGENT = config.get('DOCKER_TIMEOUT_AGENT')
 
-def kill_process_tree(pid):
-
+def kill_process_tree(pid, reason="unspecified"):
+    """
+    Kill a process and all its children.
+    
+    Args:
+        pid: Process ID to kill
+        reason: Why this kill is happening (for logging)
+    """
+    log_kill_event('kill_process_tree', pid, reason)
+    
     try:
         parent = psutil.Process(pid)
-
-        for child in parent.children(recursive=True):
-            child.kill()
+        children = parent.children(recursive=True)
+        
+        print(f"[KILL_TREE] PID {pid}: Found {len(children)} child processes")
+        for child in children:
+            try:
+                print(f"[KILL_TREE] Killing child PID {child.pid} ({child.name()})")
+                child.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                print(f"[KILL_TREE] Could not kill child {child.pid}: {e}")
+        
+        print(f"[KILL_TREE] Killing parent PID {pid} ({parent.name()})")
         parent.kill()
+        print(f"[KILL_TREE] Successfully killed process tree for PID {pid}")
 
     except psutil.NoSuchProcess:
-        pass
+        print(f"[KILL_TREE] PID {pid} no longer exists (already terminated)")
 
 
 def apply_template_substitution(content: str) -> str:
@@ -64,7 +116,10 @@ def apply_template_substitution(content: str) -> str:
         '__VERIF_EDA_IMAGE__': config.get('VERIF_EDA_IMAGE'),
         '__LICENSE_NETWORK__': config.get('LICENSE_NETWORK'),
         '__OSS_SIM_IMAGE__': config.get('OSS_SIM_IMAGE'),
-        '__OSS_PNR_IMAGE__': config.get('OSS_PNR_IMAGE')
+        '__OSS_PNR_IMAGE__': config.get('OSS_PNR_IMAGE'),
+        # Central poRTLe images (built from docker/base/*)
+        '__PORTLE_AGENT_BASE__': config.get('PORTLE_AGENT_BASE'),
+        '__PORTLE_OSS_CAD_IMAGE__': config.get('PORTLE_OSS_CAD_IMAGE')
     }
     
     # Apply substitutions for any placeholders found
@@ -334,19 +389,33 @@ class Repository:
             )
 
         # Define the timeout
+        print(f"[EXEC_TIMEOUT] Started process PID {pid} with timeout={DOCKER_TIMEOUT}s")
+        print(f"[EXEC_TIMEOUT] Command: {cmd[:200]}..." if len(cmd) > 200 else f"[EXEC_TIMEOUT] Command: {cmd}")
+        
+        start_time = time.time()
         try:
             p.communicate(timeout=DOCKER_TIMEOUT)
 
         except subprocess.TimeoutExpired:
-            print(f'Timeout for {cmd} ({DOCKER_TIMEOUT}s) expired')
-            kill_process_tree(p.pid)
+            elapsed = time.time() - start_time
+            log_kill_event('exec_timeout', p.pid, 'timeout_expired', {
+                'timeout_seconds': DOCKER_TIMEOUT,
+                'elapsed_seconds': f'{elapsed:.2f}',
+                'command': cmd[:100]
+            })
+            print(f'[EXEC_TIMEOUT] Timeout for PID {p.pid} ({DOCKER_TIMEOUT}s) expired after {elapsed:.2f}s')
+            kill_process_tree(p.pid, reason=f"timeout after {DOCKER_TIMEOUT}s")
 
             # If kill command is defined
             if kill:
+                print(f"[EXEC_TIMEOUT] Running kill command: {kill}")
                 subprocess.run(kill, shell = True)
 
+            print(f"[EXEC_TIMEOUT] Process {pid} returncode after timeout: {p.returncode}")
             return p.returncode, pid
 
+        elapsed = time.time() - start_time
+        print(f"[EXEC_TIMEOUT] Process {pid} completed normally in {elapsed:.2f}s with returncode: {p.returncode}")
         return p.returncode, pid
 
     def log_run(self, cmd, kill = None, logfile = "", monitor_dir = None, monitor_kill_cmd = None):
@@ -355,6 +424,9 @@ class Repository:
             print(f"{cmd}")
 
         start_time = time.time()
+        print(f"[LOG_RUN] Starting command at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"[LOG_RUN] Monitor dir: {monitor_dir}")
+        print(f"[LOG_RUN] Kill cmd: {kill}")
 
         if logfile != "":
             with open(logfile, 'w+') as out:
@@ -362,7 +434,22 @@ class Repository:
         else:
             returncode, pid = self.exec_timeout(cmd, kill, None, monitor_dir, monitor_kill_cmd)
 
-        return {"result" : returncode, "log" : logfile, "error_msg" : None, "execution" : time.time() - start_time, "pid": pid}
+        execution_time = time.time() - start_time
+        print(f"[LOG_RUN] Command finished. PID={pid}, returncode={returncode}, execution_time={execution_time:.2f}s")
+        
+        # Log warning if return code indicates a signal
+        if returncode is not None and returncode < 0:
+            signal_num = -returncode
+            signal_names = {9: 'SIGKILL', 15: 'SIGTERM', 6: 'SIGABRT', 11: 'SIGSEGV', 2: 'SIGINT'}
+            signal_name = signal_names.get(signal_num, f'signal {signal_num}')
+            log_kill_event('log_run_result', pid, f'process_terminated_by_signal', {
+                'signal': signal_name,
+                'returncode': returncode,
+                'execution_time': f'{execution_time:.2f}s',
+                'logfile': logfile
+            })
+
+        return {"result" : returncode, "log" : logfile, "error_msg" : None, "execution" : execution_time, "pid": pid}
 
     def log_docker(self, docker : str = "", cmd : str = "", service : str = "", logfile : str = "", 
                   monitor_size=True):

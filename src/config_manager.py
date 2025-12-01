@@ -148,6 +148,12 @@ class ConfigManager:
                            description="Docker image for simulation tasks with open-source EDA tools")
         self.register_config("OSS_PNR_IMAGE", default="ghcr.io/hdl/impl/pnr", type_cast=str,
                            description="Docker image for place-and-route tasks with open-source EDA tools")
+        
+        # Central poRTLe Images (built from docker/base/*)
+        self.register_config("PORTLE_AGENT_BASE", default="portle-agent-base:latest", type_cast=str,
+                           description="Central base image for all poRTLe agents (Python 3.12 + Node.js)")
+        self.register_config("PORTLE_OSS_CAD_IMAGE", default="portle-oss-cad-suite:latest", type_cast=str,
+                           description="Full OSS CAD Suite image with iverilog, yosys, and nextpnr")
     
     def register_config(self, 
                        key: str, 

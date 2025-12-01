@@ -4,6 +4,7 @@
 import os
 import time
 import threading
+import datetime
 import psutil
 import subprocess
 import gzip
@@ -12,6 +13,35 @@ import dotenv
 import sys
 from src.config_manager import config
 dotenv.load_dotenv()
+
+def log_kill_event(source: str, pid: int, reason: str, extra_info: dict = None):
+    """
+    Log container/process kill events to both stdout and a dedicated kill log file.
+    
+    Args:
+        source: Where the kill originated (e.g., 'exec_timeout', 'dir_monitor', 'kill_process_tree')
+        pid: Process ID being killed
+        reason: Why the kill is happening
+        extra_info: Additional context (e.g., directory size, timeout value)
+    """
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+    thread_id = threading.current_thread().name
+    
+    log_msg = f"[KILL_EVENT] [{timestamp}] [Thread: {thread_id}] Source: {source} | PID: {pid} | Reason: {reason}"
+    if extra_info:
+        for key, value in extra_info.items():
+            log_msg += f" | {key}: {value}"
+    
+    print(log_msg)
+    
+    # Also write to dedicated kill events log
+    try:
+        log_dir = os.environ.get('KILL_LOG_DIR', '/tmp')
+        kill_log_path = os.path.join(log_dir, 'kill_events.log')
+        with open(kill_log_path, 'a') as f:
+            f.write(log_msg + '\n')
+    except Exception as e:
+        print(f"Warning: Could not write to kill log: {e}")
 
 def get_directory_size(path):
     """Calculate total size of a directory in bytes."""
@@ -197,6 +227,15 @@ class DirectorySizeMonitor:
         if min_file_size_mb is None:
             min_file_size_mb = config.get("DOCKER_QUOTA_MIN_COMPRESS_SIZE_MB")
         
+        # Always log monitoring start (important for debugging)
+        print(f"[DIR_MONITOR] Starting directory size monitoring for PID {process_id}")
+        print(f"[DIR_MONITOR]   - Directory: {directory}")
+        print(f"[DIR_MONITOR]   - Size threshold: {threshold_mb}MB")
+        print(f"[DIR_MONITOR]   - Check interval: {interval_seconds}s")
+        print(f"[DIR_MONITOR]   - Kill command: {kill_cmd}")
+        print(f"[DIR_MONITOR]   - Auto-compression: {'Enabled' if compress_on_threshold else 'Disabled'}")
+        print(f"[DIR_MONITOR]   - Min file size for compression: {min_file_size_mb}MB")
+        
         if self.debug:
             print(f"Starting directory size monitoring for {directory}")
             print(f"  - Size threshold: {threshold_mb}MB")
@@ -258,11 +297,16 @@ class DirectorySizeMonitor:
         """Monitor directory size and take actions when threshold exceeded."""
         threshold_bytes = threshold_mb * 1024 * 1024  # Convert MB to bytes
         target_dirs = ['src', 'docs', 'rtl', 'verif', 'rundir']
+        check_count = 0
+        
+        print(f"[DIR_MONITOR._monitor_task] Monitor thread started for PID {process_id}")
         
         while True:
             try:
+                check_count += 1
                 # Check if process is still running
                 if not psutil.pid_exists(process_id):
+                    print(f"[DIR_MONITOR._monitor_task] Process {process_id} no longer exists after {check_count} checks. Stopping monitoring.")
                     if self.debug:
                         print(f"Process {process_id} no longer exists. Stopping monitoring.")
                     # Compress files even when the process exits normally
@@ -272,23 +316,36 @@ class DirectorySizeMonitor:
                     
                 # Get directory size
                 dir_size = get_directory_size(directory)
+                dir_size_mb = dir_size/1024/1024
+                
+                # Log every check (useful for debugging)
+                print(f"[DIR_MONITOR._monitor_task] Check #{check_count}: PID {process_id} alive, dir_size={dir_size_mb:.2f}MB (threshold={threshold_mb}MB)")
+                
                 if self.debug:
-                    print(f"Directory size: {dir_size/1024/1024:.2f} MB for {directory}")
+                    print(f"Directory size: {dir_size_mb:.2f} MB for {directory}")
                 
                 # Check if size exceeds threshold
                 if dir_size > threshold_bytes:
+                    log_kill_event('dir_monitor', process_id, 'quota_exceeded', {
+                        'directory': directory,
+                        'dir_size_mb': f'{dir_size/1024/1024:.2f}',
+                        'threshold_mb': threshold_mb,
+                        'kill_cmd': kill_cmd
+                    })
                     if self.debug:
                         print(f"Directory size ({dir_size/1024/1024:.2f} MB) exceeded threshold ({threshold_mb} MB)")
                     
                     # Execute kill command first
+                    print(f"[DIR_MONITOR] Executing kill command: {kill_cmd}")
                     if self.debug:
                         print(f"Executing kill command: {kill_cmd}")
                     try:
                         subprocess.run(kill_cmd, shell=True, timeout=30)
                     except subprocess.TimeoutExpired:
-                        print(f"Kill command timed out after 30 seconds")
+                        print(f"[DIR_MONITOR] Kill command timed out after 30 seconds")
                     
                     # Kill process tree
+                    print(f"[DIR_MONITOR] Killing process tree for PID {process_id}")
                     self._kill_process_tree(process_id)
                     
                     # Try compressing files after killing if enabled
@@ -312,22 +369,27 @@ class DirectorySizeMonitor:
     
     def _kill_process_tree(self, pid):
         """Kill a process and all its children."""
+        print(f"[DIR_MONITOR._kill_process_tree] Attempting to kill PID {pid} and children")
         try:
             parent = psutil.Process(pid)
+            children = parent.children(recursive=True)
+            print(f"[DIR_MONITOR._kill_process_tree] Found {len(children)} child processes")
             
             # Silently attempt to kill all children
-            for child in parent.children(recursive=True):
+            for child in children:
                 try:
+                    print(f"[DIR_MONITOR._kill_process_tree] Killing child PID {child.pid}")
                     child.kill()
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    pass
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as e:
+                    print(f"[DIR_MONITOR._kill_process_tree] Could not kill child {child.pid}: {e}")
                     
             # Attempt to kill parent
             try:
+                print(f"[DIR_MONITOR._kill_process_tree] Killing parent PID {pid}")
                 parent.kill()
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as e:
+                print(f"[DIR_MONITOR._kill_process_tree] Could not kill parent {pid}: {e}")
                 
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            # Process doesn't exist or can't be accessed - silently continue
-            pass 
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as e:
+            # Process doesn't exist or can't be accessed
+            print(f"[DIR_MONITOR._kill_process_tree] Process {pid} not accessible: {e}") 
