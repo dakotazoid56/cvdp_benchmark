@@ -154,6 +154,10 @@ class ConfigManager:
                            description="Central base image for all poRTLe agents (Python 3.12 + Node.js)")
         self.register_config("PORTLE_OSS_CAD_IMAGE", default="portle-oss-cad-suite:latest", type_cast=str,
                            description="Full OSS CAD Suite image with iverilog, yosys, and nextpnr")
+
+        # vLLM Configuration
+        self.register_config("VLLM_MODELS_PATH", default="/gpfs/scratch/bsc70/hpai/storage/projects/heka/models", type_cast=str,
+                           description="Base path for vLLM model storage")
     
     def register_config(self, 
                        key: str, 

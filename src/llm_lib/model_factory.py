@@ -14,6 +14,7 @@ from .subjective_score_model import SubjectiveScoreModel_Instance
 from .local_inference_model import LocalInferenceModel
 from .openrouter_llm import OpenRouter_Instance
 from .mistral_llm import Mistral_Instance
+from .vllm_instance import vLLM_Instance
 
 logging.basicConfig(level=logging.INFO)
 
@@ -55,6 +56,9 @@ class ModelFactory:
             # Local inference models
             "local_export": self._create_local_export_instance,
             "local_import": self._create_local_import_instance,
+            
+            # vLLM local inference models (prefix: vllm/model_path)
+            "vllm": self._create_vllm_instance,
         }
 
     def create_model(self, model_name: str, context: Any = None, key: Optional[str] = None, **kwargs) -> Any:
@@ -127,6 +131,15 @@ class ModelFactory:
     def _create_mistral_instance(self, model_name: str, context: Any, key: Optional[str], **kwargs) -> Mistral_Instance:
         """Create a Mistral model instance"""
         return Mistral_Instance(context=context, key=key, model=model_name)
+
+    def _create_vllm_instance(self, model_name: str, context: Any, key: Optional[str], **kwargs) -> vLLM_Instance:
+        """Create a vLLM model instance for local inference"""
+        # Extract the model path from vllm/model_path format
+        if model_name.startswith("vllm/"):
+            model_path = model_name[5:]  # Remove 'vllm/' prefix
+        else:
+            model_path = model_name
+        return vLLM_Instance(context=context, key=key, model=model_path)
 
     def register_model_type(self, model_identifier: str, factory_method):
         """
